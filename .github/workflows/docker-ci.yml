@@ -1,0 +1,42 @@
+name: Docker CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate Python syntax
+        run: python -m py_compile app/main.py
+
+      - name: Build Docker image
+        run: docker build -t devops-cicd-kubernetes:ci .
+
+      - name: Run container
+        run: |
+          docker run -d --name devops-health-app -p 8000:8000 devops-cicd-kubernetes:ci
+          for i in {1..10}; do
+            if curl --fail http://localhost:8000/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs devops-health-app
+          exit 1
+
+      - name: Verify root endpoint
+        run: |
+          curl --fail http://localhost:8000/
